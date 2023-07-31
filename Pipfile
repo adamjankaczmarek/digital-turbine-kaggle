@@ -20,6 +20,7 @@ pylint = "*"
 streamlit = "*"
 streamlit-pandas-profiling = "*"
 scikit-learn = "*"
+matplotlib = "*"
 
 [dev-packages]
 

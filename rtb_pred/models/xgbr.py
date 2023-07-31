@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import xgboost
+from matplotlib import pyplot
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 
@@ -12,6 +13,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str)
     parser.add_argument("--model_out", type=str)
+    parser.add_argument("--limit", type=int)
     return parser.parse_args()
 
 
@@ -25,7 +27,7 @@ def split_data(df):
     return train, val
 
 
-def main(data, model_out):
+def main(data, model_out, limit):
     features = [
         "os",
         "version",
@@ -57,6 +59,8 @@ def main(data, model_out):
     ]
     label = "winBid"
     df = pd.read_csv(data)
+    if limit:
+        df = df[:limit]
 
     cat_attribs = [
         "os",
@@ -92,12 +96,43 @@ def main(data, model_out):
     train_X = encoder.transform(train_X)
     val_X = encoder.transform(val_X)
 
-    model = xgboost.XGBRegressor()
+    feature_names = full_pipeline.get_feature_names_out()
+
+    model = xgboost.XGBRegressor(n_estimators=300)
     model.fit(
-        train_X, train_y, eval_metric="rmse", eval_set=[(val_X, val_y)], verbose=1
+        train_X,
+        train_y,
+        eval_metric="rmse",
+        eval_set=[(train_X, train_y), (val_X, val_y)],
+        verbose=1,
     )
-    model.predict(val_X)
+    val_pred_y = model.predict(val_X)
     model.save_model(model_out)
+
+    results = model.evals_result()
+    epochs = len(results["validation_0"]["rmse"])
+    x_axis = range(0, epochs)
+
+    fig, ax = pyplot.subplots(figsize=(12, 12))
+    ax.plot(x_axis, results["validation_0"]["rmse"], label="Train")
+    ax.plot(x_axis, results["validation_1"]["rmse"], label="Test")
+    ax.legend()
+    pyplot.ylabel("RMSE Loss")
+    pyplot.title("XGBoost RMSE Loss")
+    pyplot.savefig("xgb.png")
+
+    importances = model.get_booster().get_score(importance_type="weight")
+    name_map = {f"f{i}": feature_name for i, feature_name in enumerate(feature_names)}
+    most_important_features = [
+        name_map[f] for f, _ in sorted(importances.items(), key=lambda x: -x[1])
+    ]
+    print(most_important_features)
+
+    xgboost.plot_importance(model, max_num_features=10).set_yticklabels(
+        most_important_features[:10]
+    )
+    pyplot.gcf().subplots_adjust(left=0.5)
+    pyplot.savefig("xgb_importances.png")
 
 
 if __name__ == "__main__":
