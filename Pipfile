@@ -13,8 +13,15 @@ mypy = "*"
 black = "*"
 isort = "*"
 dvc-s3 = "*"
+pre-commit = "*"
+hydra-core = "*"
+omegaconf = "*"
+pylint = "*"
+streamlit = "*"
+streamlit-pandas-profiling = "*"
+scikit-learn = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.11"
+python_version = "3.10"
